@@ -215,16 +215,17 @@ export class DockerClient {
           CapDrop: limits.capDrop,
           CapAdd: limits.capAdd,
 
-          // Read-only root filesystem (if strict)
+          // Read-only root filesystem
           ReadonlyRootfs: limits.readonlyRootfs,
 
-          // Tmpfs for writable areas when rootfs is readonly
-          ...(limits.readonlyRootfs && {
-            Tmpfs: {
-              '/tmp': 'rw,noexec,nosuid,size=64m',
-              '/workspace': 'rw,noexec,nosuid,size=128m',
-            },
-          }),
+          // Tmpfs for writable areas - always mount for security
+          // Even when rootfs is not readonly, tmpfs prevents persistent storage attacks
+          Tmpfs: {
+            '/tmp': 'rw,noexec,nosuid,size=64m',
+            '/workspace': 'rw,exec,nosuid,size=256m', // exec needed for compiled binaries
+            '/var/tmp': 'rw,noexec,nosuid,size=32m',
+            '/home/sandbox': 'rw,noexec,nosuid,size=32m', // User home for configs
+          },
 
           // Volume mounts
           Binds: config.volumes?.map(v =>
