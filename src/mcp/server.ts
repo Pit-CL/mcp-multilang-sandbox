@@ -379,10 +379,32 @@ function createMcpServer(): McpServer {
     async ({ session: sessionName, packages }) => {
       log.info({ sessionName, packages }, 'Installing packages');
 
+      // Rate limiting
+      const rateLimitResult = defaultRateLimiter.check(sessionName, 'install');
+      if (!rateLimitResult.allowed) {
+        throw new Error(
+          `Rate limit exceeded. Please wait ${Math.ceil((rateLimitResult.retryAfterMs || 0) / 1000)} seconds.`
+        );
+      }
+
       try {
         const session = await sessions.get(sessionName);
         if (!session) {
           throw new Error(`Session not found: ${sessionName}`);
+        }
+
+        // SECURITY: Validate packages before installation
+        try {
+          validatePackages(session.language, packages);
+        } catch (error: any) {
+          if (error instanceof PackageSecurityError) {
+            auditLogger.log('SECURITY_VIOLATION', {
+              type: 'blocked_package_install',
+              packages,
+              error: error.message,
+            }, { sessionId: sessionName });
+          }
+          throw error;
         }
 
         const runtime = runtimes[session.language];
