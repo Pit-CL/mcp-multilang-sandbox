@@ -175,6 +175,9 @@ export class DockerClient {
     securityLevel: SecurityLevel = 'standard'
   ): Promise<Docker.Container> {
     try {
+      // SECURITY: Validate volume mounts before creating container
+      this.validateVolumeMounts(config.volumes);
+
       const limits = getResourceLimits(securityLevel);
       const seccompProfile = getSeccompProfile(config.language);
 
