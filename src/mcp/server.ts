@@ -419,7 +419,11 @@ function createMcpServer(): McpServer {
         }
 
         const container = session.container;
-        const fullPath = path.startsWith('/') ? path : `/workspace/${path}`;
+
+        // Validate and sanitize path to prevent traversal attacks
+        const fullPath = validatePathForOperation(path, operation);
+        log.debug({ originalPath: path, sanitizedPath: fullPath }, 'Path sanitized');
+
         let output: { success: boolean; data?: any; error?: string };
 
         switch (operation) {
