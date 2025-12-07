@@ -149,7 +149,9 @@ function createMcpServer(): McpServer {
           }
           container = sess.container;
         } else {
-          container = await pool.acquire(language as Language);
+          // Use ML image for Python if ml=true
+          const mlImage = (ml && language === 'python') ? pythonMLRuntime.mlImage : undefined;
+          container = await pool.acquire(language as Language, mlImage);
           shouldRelease = true;
         }
 
