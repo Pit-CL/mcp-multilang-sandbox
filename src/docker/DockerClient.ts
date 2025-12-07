@@ -94,6 +94,58 @@ export class DockerClient {
   }
 
   /**
+   * Validate volume mount paths - SECURITY CRITICAL
+   *
+   * Prevents mounting sensitive host paths or mounting to dangerous container paths.
+   * Only allows mounts under /workspace or /data in container.
+   */
+  private validateVolumeMounts(volumes?: Array<{ hostPath: string; containerPath: string; readonly?: boolean }>): void {
+    if (!volumes || volumes.length === 0) return;
+
+    for (const vol of volumes) {
+      // Normalize paths
+      const hostPath = path.normalize(vol.hostPath);
+      const containerPath = path.normalize(vol.containerPath);
+
+      // 1. Check host path against blocklist
+      for (const blocked of BLOCKED_HOST_PATHS) {
+        if (hostPath === blocked || hostPath.startsWith(blocked + '/')) {
+          throw new PathSecurityError(
+            `Host path "${hostPath}" is not allowed for mounting (blocked: ${blocked})`
+          );
+        }
+      }
+
+      // 2. Check container path against blocklist
+      for (const blocked of BLOCKED_CONTAINER_PATHS) {
+        if (containerPath === blocked || containerPath.startsWith(blocked + '/')) {
+          throw new PathSecurityError(
+            `Container path "${containerPath}" is not allowed for mounting (blocked: ${blocked})`
+          );
+        }
+      }
+
+      // 3. Container path must be under /workspace or /data
+      if (!containerPath.startsWith('/workspace') && !containerPath.startsWith('/data')) {
+        throw new PathSecurityError(
+          `Container mounts only allowed under /workspace or /data, got: ${containerPath}`
+        );
+      }
+
+      // 4. Check for path traversal in paths
+      if (hostPath.includes('..') || containerPath.includes('..')) {
+        throw new PathSecurityError('Path traversal detected in volume mount');
+      }
+
+      // 5. Validate path format (no shell metacharacters)
+      const dangerousChars = /[;&|`$(){}[\]<>!*?]/;
+      if (dangerousChars.test(hostPath) || dangerousChars.test(containerPath)) {
+        throw new PathSecurityError('Shell metacharacters not allowed in mount paths');
+      }
+    }
+  }
+
+  /**
    * Pull Docker image
    */
   public async pullImage(image: string, onProgress?: (progress: any) => void): Promise<void> {
