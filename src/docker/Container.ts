@@ -14,6 +14,11 @@ import type {
   Language,
 } from '../types/index.js';
 
+// Output size limits to prevent OOM attacks
+const MAX_STDOUT_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_STDERR_SIZE = 5 * 1024 * 1024;  // 5MB
+const TRUNCATION_MESSAGE = '\n\n... [OUTPUT TRUNCATED - SIZE LIMIT EXCEEDED] ...\n';
+
 export class Container {
   private container: Docker.Container;
   public readonly id: string;
