@@ -278,11 +278,11 @@ export function getResourceLimits(level: SecurityLevel = 'standard'): {
       return {
         memory: '512m',
         cpus: '1.0',
-        pidsLimit: 100,
+        pidsLimit: 30, // Reduced from 100 to prevent fork bombs
         noNewPrivileges: true,
-        readonlyRootfs: false, // Need to write temp files
+        readonlyRootfs: true, // Enabled - use tmpfs for writable areas
         capDrop: ['ALL'],
-        capAdd: ['CHOWN', 'SETUID', 'SETGID'], // Minimal for package install
+        capAdd: [], // SECURITY: Removed SETUID/SETGID - enables privilege escalation
       };
 
     case 'permissive':
