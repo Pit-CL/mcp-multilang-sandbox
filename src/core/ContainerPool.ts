@@ -69,8 +69,10 @@ export class ContainerPool {
 
   /**
    * Acquire a container from the pool
+   * @param language - Programming language
+   * @param image - Optional custom image (e.g., for ML runtime)
    */
-  public async acquire(language: Language): Promise<Container> {
+  public async acquire(language: Language, image?: string): Promise<Container> {
     const startTime = Date.now();
 
     try {
