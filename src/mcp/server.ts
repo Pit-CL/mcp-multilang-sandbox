@@ -23,7 +23,7 @@ import {
 import { Container } from '../docker/Container.js';
 import type { Language } from '../types/index.js';
 import { createLogger } from '../utils/logger.js';
-import { auditLogger } from '../security/index.js';
+import { auditLogger, validatePathForOperation, PathSecurityError } from '../security/index.js';
 import { createHash } from 'crypto';
 
 const log = createLogger({ component: 'MCPServer' });
