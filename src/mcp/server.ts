@@ -119,6 +119,21 @@ function createMcpServer(): McpServer {
     async ({ language, code, session: sessionName, timeout, ml }) => {
       log.info({ language, sessionName }, 'Executing code');
 
+      // Rate limiting
+      const rateLimitKey = sessionName || 'anonymous';
+      const rateLimitResult = defaultRateLimiter.check(rateLimitKey, 'execute');
+      if (!rateLimitResult.allowed) {
+        auditLogger.log('SECURITY_VIOLATION', {
+          type: 'rate_limit_exceeded',
+          key: rateLimitKey,
+          operation: 'execute',
+          retryAfterMs: rateLimitResult.retryAfterMs,
+        });
+        throw new Error(
+          `Rate limit exceeded. Please wait ${Math.ceil((rateLimitResult.retryAfterMs || 0) / 1000)} seconds.`
+        );
+      }
+
       // Generate code hash for audit
       const codeHash = createHash('sha256').update(code).digest('hex').substring(0, 16);
 
