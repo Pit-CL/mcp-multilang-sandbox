@@ -20,3 +20,10 @@ export {
   type AuditSeverity,
   type AuditStats,
 } from './AuditLogger.js';
+
+export {
+  sanitizePath,
+  validatePathForOperation,
+  isPathSafe,
+  PathSecurityError,
+} from './pathValidator.js';
