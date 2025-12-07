@@ -13,7 +13,43 @@ import {
   getSeccompProfile,
   getResourceLimits,
   type SecurityLevel,
+  PathSecurityError,
 } from '../security/index.js';
+import * as path from 'path';
+
+// Blocked host paths - never allow mounting these
+const BLOCKED_HOST_PATHS = [
+  '/etc',
+  '/var',
+  '/usr',
+  '/bin',
+  '/sbin',
+  '/lib',
+  '/lib64',
+  '/root',
+  '/home',
+  '/proc',
+  '/sys',
+  '/dev',
+  '/boot',
+  '/srv',
+  '/run',
+  '/var/run/docker.sock', // Critical: Docker socket escape
+  '/var/run/docker',
+];
+
+// Blocked container paths - never allow mounting to these
+const BLOCKED_CONTAINER_PATHS = [
+  '/etc',
+  '/var',
+  '/usr',
+  '/bin',
+  '/sbin',
+  '/lib',
+  '/proc',
+  '/sys',
+  '/dev',
+];
 
 export class DockerClient {
   private docker: Docker;
