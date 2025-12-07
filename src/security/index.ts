@@ -27,3 +27,17 @@ export {
   isPathSafe,
   PathSecurityError,
 } from './pathValidator.js';
+
+export {
+  validatePackages,
+  isPackageSafe,
+  filterSafePackages,
+  PackageSecurityError,
+} from './packageValidator.js';
+
+export {
+  RateLimiter,
+  defaultRateLimiter,
+  type RateLimitConfig,
+  type RateLimitResult,
+} from './rateLimiter.js';
