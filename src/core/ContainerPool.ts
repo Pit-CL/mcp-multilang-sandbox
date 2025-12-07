@@ -282,24 +282,76 @@ export class ContainerPool {
   }
 
   /**
-   * Clean a container (reset state)
+   * Clean a container (reset state) - SECURITY CRITICAL
+   *
+   * Performs comprehensive cleanup to prevent data leakage between sessions:
+   * - Workspace files
+   * - Temporary files
+   * - Shell history
+   * - Package caches
+   * - IPC artifacts (shared memory, semaphores)
    */
   private async cleanContainer(container: Container): Promise<void> {
     try {
-      // Remove all files from workspace
-      await container.exec(['sh', '-c', 'rm -rf /workspace/* /workspace/.*'], {
-        timeout: 5000,
-      }).catch(() => {
-        // Ignore errors (some files might not exist)
+      // Comprehensive cleanup commands
+      const cleanupScript = [
+        // 1. Workspace cleanup (handles dotfiles correctly)
+        'rm -rf /workspace/* /workspace/.[!.]* /workspace/..?* 2>/dev/null || true',
+
+        // 2. Temp directory cleanup
+        'rm -rf /tmp/* /tmp/.[!.]* /tmp/..?* 2>/dev/null || true',
+        'rm -rf /var/tmp/* 2>/dev/null || true',
+
+        // 3. Shell and interpreter history cleanup
+        'rm -f ~/.bash_history ~/.sh_history ~/.zsh_history 2>/dev/null || true',
+        'rm -f ~/.python_history ~/.node_repl_history 2>/dev/null || true',
+        'rm -rf ~/.ipython 2>/dev/null || true',
+
+        // 4. Package manager caches (prevent fingerprinting)
+        'rm -rf ~/.cache/pip ~/.cache/npm ~/.npm 2>/dev/null || true',
+        'rm -rf ~/.cargo/registry ~/.cargo/git 2>/dev/null || true',
+        'rm -rf ~/.local/share/go 2>/dev/null || true',
+
+        // 5. Python bytecode caches
+        'find /workspace -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true',
+        'find /workspace -name "*.pyc" -delete 2>/dev/null || true',
+
+        // 6. IPC cleanup (shared memory segments)
+        'ipcs -m 2>/dev/null | awk \'NR>3 && $3==1000 {print $2}\' | xargs -r -I {} ipcrm -m {} 2>/dev/null || true',
+        'ipcs -s 2>/dev/null | awk \'NR>3 && $3==1000 {print $2}\' | xargs -r -I {} ipcrm -s {} 2>/dev/null || true',
+        'ipcs -q 2>/dev/null | awk \'NR>3 && $3==1000 {print $2}\' | xargs -r -I {} ipcrm -q {} 2>/dev/null || true',
+
+        // 7. Clear environment by restarting shell context
+        'unset $(compgen -v 2>/dev/null | grep -v "^_\\|^PATH\\|^HOME\\|^USER\\|^SHELL\\|^TERM\\|^PWD") 2>/dev/null || true',
+
+        // 8. Recreate clean workspace
+        'mkdir -p /workspace && chmod 755 /workspace',
+      ].join(' && ');
+
+      await container.exec(['sh', '-c', cleanupScript], {
+        timeout: 10000, // Allow more time for comprehensive cleanup
       });
 
-      // Recreate workspace
-      await container.exec(['mkdir', '-p', '/workspace'], { timeout: 5000 });
+      // Verify cleanup succeeded
+      const verifyResult = await container.exec(
+        ['sh', '-c', 'ls -la /workspace 2>/dev/null | wc -l'],
+        { timeout: 5000 }
+      );
+
+      const lineCount = parseInt(verifyResult.stdout.trim(), 10);
+      // Expected: 3 lines (total, ., ..)
+      if (lineCount > 3) {
+        this.log.warn(
+          { containerId: container.id, fileCount: lineCount - 3 },
+          'Cleanup incomplete - files remain in workspace'
+        );
+      }
     } catch (error: any) {
       this.log.warn(
         { containerId: container.id, error: error.message },
-        'Failed to clean container'
+        'Failed to clean container - marking for destruction'
       );
+      // If cleanup fails, container should not be reused
       throw error;
     }
   }
