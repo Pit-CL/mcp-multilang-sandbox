@@ -268,8 +268,10 @@ export class ContainerPool {
 
   /**
    * Create a new container
+   * @param language - Programming language
+   * @param customImage - Optional custom image (overrides default)
    */
-  private async createContainer(language: Language): Promise<Container> {
+  private async createContainer(language: Language, customImage?: string): Promise<Container> {
     // Get default image for language
     const imageMap: Record<Language, string> = {
       python: 'python:3.11-slim',
@@ -281,7 +283,7 @@ export class ContainerPool {
       ruby: 'ruby:3.2-alpine',
     };
 
-    const image = imageMap[language];
+    const image = customImage || imageMap[language];
 
     const dockerContainer = await dockerClient.createContainer({
       image,
