@@ -267,7 +267,7 @@ export function getResourceLimits(level: SecurityLevel = 'standard'): {
       return {
         memory: '256m',
         cpus: '0.5',
-        pidsLimit: 50,
+        pidsLimit: 10, // Very restrictive - single process only
         noNewPrivileges: true,
         readonlyRootfs: true,
         capDrop: ['ALL'],
