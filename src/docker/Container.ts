@@ -142,13 +142,16 @@ export class Container {
   }
 
   /**
-   * Execute with timeout
+   * Execute with timeout and output size limits
+   *
+   * Implements protection against OOM attacks by limiting output size.
+   * Large outputs are truncated with a warning message.
    */
   private async executeWithTimeout(
     exec: Docker.Exec,
     stdin?: string,
     timeout: number = 30000
-  ): Promise<{ stdout: string; stderr: string }> {
+  ): Promise<{ stdout: string; stderr: string; truncated?: boolean }> {
     return new Promise(async (resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error('Execution timeout'));
@@ -168,25 +171,57 @@ export class Container {
 
         let stdout = '';
         let stderr = '';
+        let stdoutTruncated = false;
+        let stderrTruncated = false;
 
-        // Demux stdout/stderr
+        // Demux stdout/stderr with size limits
         this.container.modem.demuxStream(
           stream,
           {
             write: (chunk: Buffer) => {
-              stdout += chunk.toString();
+              if (stdoutTruncated) return; // Already truncated, ignore more data
+
+              const chunkStr = chunk.toString();
+              if (stdout.length + chunkStr.length > MAX_STDOUT_SIZE) {
+                // Truncate to fit limit minus truncation message
+                const remaining = MAX_STDOUT_SIZE - stdout.length - TRUNCATION_MESSAGE.length;
+                if (remaining > 0) {
+                  stdout += chunkStr.substring(0, remaining);
+                }
+                stdout += TRUNCATION_MESSAGE;
+                stdoutTruncated = true;
+              } else {
+                stdout += chunkStr;
+              }
             },
           } as any,
           {
             write: (chunk: Buffer) => {
-              stderr += chunk.toString();
+              if (stderrTruncated) return; // Already truncated, ignore more data
+
+              const chunkStr = chunk.toString();
+              if (stderr.length + chunkStr.length > MAX_STDERR_SIZE) {
+                // Truncate to fit limit minus truncation message
+                const remaining = MAX_STDERR_SIZE - stderr.length - TRUNCATION_MESSAGE.length;
+                if (remaining > 0) {
+                  stderr += chunkStr.substring(0, remaining);
+                }
+                stderr += TRUNCATION_MESSAGE;
+                stderrTruncated = true;
+              } else {
+                stderr += chunkStr;
+              }
             },
           } as any
         );
 
         stream.on('end', () => {
           clearTimeout(timer);
-          resolve({ stdout, stderr });
+          resolve({
+            stdout,
+            stderr,
+            truncated: stdoutTruncated || stderrTruncated,
+          });
         });
 
         stream.on('error', (error) => {
