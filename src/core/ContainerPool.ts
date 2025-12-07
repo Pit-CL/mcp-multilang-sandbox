@@ -76,6 +76,20 @@ export class ContainerPool {
     const startTime = Date.now();
 
     try {
+      // If custom image requested, always create new container (no pooling for ML)
+      if (image) {
+        this.log.info({ language, image }, 'Custom image requested - creating new container');
+        const container = await this.createContainer(language, image);
+
+        const waitTime = Date.now() - startTime;
+        this.log.info(
+          { language, image, containerId: container.id, waitTime },
+          'Container acquired with custom image'
+        );
+
+        return container;
+      }
+
       // Try to get an available container from pool
       const pooled = this.getAvailableContainer(language);
 
