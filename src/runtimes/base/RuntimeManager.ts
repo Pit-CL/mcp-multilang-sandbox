@@ -87,10 +87,13 @@ export abstract class RuntimeManager {
 
   /**
    * Create temporary file path
+   *
+   * Uses /workspace instead of /tmp because /tmp has noexec mount option
+   * which prevents execution of compiled binaries and scripts.
    */
   protected getTempFilePath(extension: string = ''): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(7);
-    return `/tmp/exec-${timestamp}-${random}${extension}`;
+    return `/workspace/.exec-${timestamp}-${random}${extension}`;
   }
 }
