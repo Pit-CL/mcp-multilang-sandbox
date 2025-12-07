@@ -461,7 +461,17 @@ function createMcpServer(): McpServer {
           structuredContent: output,
         };
       } catch (error: any) {
-        log.error({ error: error.message }, 'File operation failed');
+        // Log security violations separately
+        if (error instanceof PathSecurityError) {
+          auditLogger.log('SECURITY_VIOLATION', {
+            type: 'path_traversal_attempt',
+            path,
+            error: error.message,
+          }, { sessionId: sessionName });
+          log.warn({ path, error: error.message }, 'Path traversal blocked');
+        } else {
+          log.error({ error: error.message }, 'File operation failed');
+        }
         return {
           content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }, null, 2) }],
           structuredContent: { success: false, error: error.message },
