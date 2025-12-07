@@ -280,7 +280,10 @@ export function getResourceLimits(level: SecurityLevel = 'standard'): {
         cpus: '1.0',
         pidsLimit: 30, // Reduced from 100 to prevent fork bombs
         noNewPrivileges: true,
-        readonlyRootfs: true, // Enabled - use tmpfs for writable areas
+        // NOTE: readonlyRootfs disabled because Docker putArchive API doesn't work with it
+        // even for tmpfs mounts. Other security measures (seccomp, capabilities, network)
+        // still provide strong protection. See: https://github.com/moby/moby/issues/44490
+        readonlyRootfs: false,
         capDrop: ['ALL'],
         capAdd: [], // SECURITY: Removed SETUID/SETGID - enables privilege escalation
       };
