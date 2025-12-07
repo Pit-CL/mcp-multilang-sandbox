@@ -31,3 +31,16 @@ coverage/
 # Temporary files
 *.tmp
 .cache/
+
+# Development notes (internal)
+PROGRESS.md
+RESUMEN-SESION.md
+*.session.md
+.checkpoint-*.md
+
+# Playwright MCP
+.playwright-mcp/
+
+# Test artifacts
+test-results/
+playwright-report/
